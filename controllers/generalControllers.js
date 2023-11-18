@@ -22,9 +22,28 @@ const s3 = new S3Client({
     region: bucketRegion
 });
 
-const getAllPost  =async (req,res) =>{
+const getAllPosts  =async (req,res) =>{
     try {
         const posts = await Post.find();
+        if(!posts) return res.status(204).json({'message':'No posts found'});
+
+        for( const post of posts){
+            const getObjectParams = {
+                Bucket : bucketName,
+                Key: post.postNameUrl
+            }
+
+            const command = new GetObjectCommand(getObjectParams);
+            const url = await getSignedUrl(s3,command,{expiresIn: 360000});
+            post.awsUrl  =url;
+
+            const uid = post.ownerId
+            const user = await User.findOne({_id: uid}).exec();
+            post.name = user.name
+            post.lastName = user.lastName
+        }
+        
+        res.json(posts)
     } catch (err) {
         console.log(err);
     }
@@ -102,4 +121,4 @@ const handleRegister = async (req,res) =>{
         res.status(500).json({error:err.message})
     }
 }
-module.exports = {handleLogin,handleRegister,CreatePost}
+module.exports = {handleLogin,handleRegister,CreatePost,getAllPosts}
